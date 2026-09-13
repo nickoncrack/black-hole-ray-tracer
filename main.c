@@ -6,6 +6,7 @@
 
 #define M 1.0        // black hole mass
 #define Rs (2.0 * M) // Schwarzschild radius (rₛ) in geometrized units (G=c=1)
+#define DIFF_STEP 1e-6
 
 // define metric type
 #define SCHWARZSCHILD_METRIC
