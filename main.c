@@ -6,6 +6,7 @@
 
 #define M 1.0        // black hole mass
 #define Rs (2.0 * M) // Schwarzschild radius (rₛ) in geometrized units (G=c=1)
+
 #define DIFF_STEP 1e-6
 
 // define metric type
@@ -200,9 +201,19 @@ Vector4 *calculate_acceleration(Christoffel *gamma, Vector4 *k) {
 	return ret;
 }
 
-#define STEP_SIZE 0.0001
+#define BASE_STEP_SIZE 0.01
 
-State *get_next(State *s) {
+// using a step size less than approximately 0.0001 causes the output numbers to have a huge error
+double get_step_size(double r) {
+	double factor = (r - 2.0 * M) / (8.0 * M);
+
+	if (factor < 0.1) factor = 0.1;
+	if (factor > 1.0) factor = 1;
+
+	return BASE_STEP_SIZE * factor;
+}
+
+State *get_next(State *s, double Δλ) {
 	State *next = malloc(sizeof(State));
 	next->k = malloc(sizeof(Vector4));
 	next->x = malloc(sizeof(Vector4));
@@ -218,8 +229,8 @@ State *get_next(State *s) {
 	
 	// step 1
 	for (int i = 0; i < 4; i++) {
-		a1.data[i] = STEP_SIZE * a->data[i];
-		b1.data[i] = STEP_SIZE * s->k->data[i];
+		a1.data[i] = Δλ * a->data[i];
+		b1.data[i] = Δλ * s->k->data[i];
 	}
 
 	// step 2
@@ -228,7 +239,7 @@ State *get_next(State *s) {
 		k.data[i] = s->k->data[i] + a1.data[i] / 2.0;
 		x.data[i] = s->x->data[i] + b1.data[i] / 2.0;
 	}
-
+ 
 	// calculate new metric and christoffel symbols
 	temp_g = calculate_metric(x);
 	temp_gamma = calculate_christoffel(temp_g, &x);
@@ -237,25 +248,25 @@ State *get_next(State *s) {
 	a = calculate_acceleration(temp_gamma, &k);
 
 	for (int i = 0; i < 4; i++) {
-		a2.data[i] = STEP_SIZE * a->data[i];
-		b2.data[i] = STEP_SIZE * (s->k->data[i] + 0.5 * a1.data[i]);
+		a2.data[i] = Δλ * a->data[i];
+		b2.data[i] = Δλ * (s->k->data[i] + 0.5 * a1.data[i]);
 
 		// prepare for step 3 by changing velocity vector based on a2
 		k.data[i] = s->k->data[i] + a2.data[i] / 2.0;
+		x.data[i] = s->x->data[i] + b2.data[i] / 2.0;
 	}
 
-	// step 3
-	/* 
-		calculate new acceleration based on a2. position (therefore metric and christoffel) remain unchanged,
-		since λ is not incremented
-	
-	*/
 	free(a);
+	free(temp_g);
+	free(temp_gamma);
+	temp_g = calculate_metric(x);
+	temp_gamma = calculate_christoffel(temp_g, &x);
 	a = calculate_acceleration(temp_gamma, &k);
 
+	// step 3
 	for (int i = 0; i < 4; i++) {
-		a3.data[i] = STEP_SIZE * a->data[i];
-		b3.data[i] = STEP_SIZE * (s->k->data[i] + 0.5 * a2.data[i]);
+		a3.data[i] = Δλ * a->data[i];
+		b3.data[i] = Δλ * (s->k->data[i] + 0.5 * a2.data[i]);
 
 		// prepare for step 4 by incrementing position and velocity by a full step.
 		k.data[i] = s->k->data[i] + a3.data[i];
@@ -272,8 +283,8 @@ State *get_next(State *s) {
 	a = calculate_acceleration(temp_gamma, &k);
 
 	for (int i = 0; i < 4; i++) {
-		a4.data[i] = STEP_SIZE * a->data[i];
-		b4.data[i] = STEP_SIZE + (s->k->data[i] * a3.data[i]);
+		a4.data[i] = Δλ * a->data[i];
+		b4.data[i] = Δλ * (s->k->data[i] + a3.data[i]);
 
 		// calculate final velocity and position
 		k.data[i] = s->k->data[i] + (a1.data[i] + 2 * a2.data[i] + 2 * a3.data[i] + a4.data[i]) / 6.0;
