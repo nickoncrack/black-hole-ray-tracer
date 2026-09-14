@@ -19,10 +19,6 @@ typedef struct {
   	Vector4 *k; // velocity
 } State;
 
-/*
-Metric *calculate_metric(State *s);
-Metric *calculate_inverse_metric(Metric *g);
-
-Christoffel *calculate_christoffel(Metric *g, Vector4 *pos);
-State *get_next_state(State *s);
-*/
+typedef struct {
+	unsigned char r, g, b;
+} Color;
